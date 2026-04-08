@@ -49,10 +49,10 @@ mkfifo _data_control/bw_delay_sync_hwc
 rm _logs/*.log 2> /dev/null
 
 # Useful to set this on low power ARM devices 
-#sudo cpufreq-set -g performance
+#cpufreq-set -g performance
 
 # Set for Tinkerboard with heatsink/fan
-#sudo cpufreq-set -d 1.8GHz
+#cpufreq-set -d 1.8GHz
 
 # Generating FIR filter coefficients
 python3 fir_filter_designer.py
@@ -74,7 +74,7 @@ chrt -f 99 _daq_core/decimate.out 2> _logs/decimator.log &
 python3 _daq_core/delay_sync.py 2> _logs/delay_sync.log &
 
 # Hardware Controller data path - Thread 3
-sudo python3 _daq_core/hw_controller.py 2> _logs/hwc.log &
+python3 _daq_core/hw_controller.py 2> _logs/hwc.log &
 # root priviliges are needed to drive the i2c master
 
 if [ $out_data_iface_type = eth ]; then

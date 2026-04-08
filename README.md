@@ -4,6 +4,22 @@ Coherent data acquisition signal processing chain for multichannel SDRs.
 Tested on the Raspberry Pi 4. Should work with all models, 2GB, 4GB and 8GB.
 Should also be compatible with other systems including x86, but a system with at least 4-CPU cores is probably required.
 
+
+## Changes
+* Removed all `sudo` references - don't want code executing, instead if I need something to run as root I'll do that separately. Some of the things are more one-time system configuration items that should be done one time instead of during the start. To that end here are the things it was doing that should be set for your system.
+
+    # The Kernel limits the maximum size of all buffers that libusb can allocate to 16MB by default.
+    # In order to disable the limit, you have to run the following command as root:
+    # TODO how to set this permanently for your OS?
+    # TODO should it really be **zero** or is there a sane limit?
+    sh -c "echo 0 > /sys/module/usbcore/parameters/usbfs_memory_mb"
+
+* Also changing install instructions, don't want to use `sudo` with pip, should do it as normal user.
+
+* TODO: Should clean up the start/stop so that we're not using regex to kill processes... seems like a poor way to handle that, should capture process ID or leave process in foreground to use Ctrl-C or make it a systemd service or something
+
+
+
 ## Usage
 
 Heimdall is the data acquisition software for KrakenSDR. It needs to be used together with DSP software like our direction finding or GNU Radio software.
@@ -229,16 +245,16 @@ Now you will probably want to install the direction of arrival DSP code found in
 
 ## Advanced Operation Notes:
 ### Test Run:
-The data acquisition chain can be started by simply running the 'daq_start_sm.sh' script in sudo mode.
+The data acquisition chain can be started by simply running the 'daq_start_sm.sh' script.
 ```bash
 cd ~/krakensdr/heimdall_daq_fw
-sudo ./daq_start_sm.sh
+./daq_start_sm.sh
 ```
 
-In order to start the system in simulation mode run the 'daq_synthetic_start.sh' script in sudo mode.
+In order to start the system in simulation mode run the 'daq_synthetic_start.sh' script.
 ```bash
 cd ~/krakensdr/heimdall_daq_fw
-sudo ./daq_synthetic_start.sh
+./daq_synthetic_start.sh
 ```
 
 Prior to the system startup set parameters of the required operation mode in the 'daq_chain_config.ini'.
@@ -260,10 +276,10 @@ Python 3.8 or newer is required due to its built-in shared memory library. Note 
 sudo apt-get update
 sudo apt-get install -y build-essential tk-dev libncurses5-dev libncursesw5-dev libreadline6-dev libdb5.3-dev libgdbm-dev libsqlite3-dev libssl-dev libbz2-dev libexpat1-dev liblzma-dev zlib1g-dev libffi-dev tar wget vim
 wget https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tgz
-sudo tar zxf Python-3.8.0.tgz
+tar zxf Python-3.8.0.tgz
 cd Python-3.8.0
-sudo ./configure --enable-optimizations
-sudo make -j 4
+./configure --enable-optimizations
+make -j 4
 sudo make install
 ```
 

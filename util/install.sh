@@ -44,14 +44,14 @@ else
 fi
 echo "6/5 Install the required python3 packages"
 sudo apt install python3-pip
-sudo python3 -m pip install numpy
-sudo python3 -m pip install configparser
+python3 -m pip --user install numpy
+python3 -m pip --user install configparser
 sudo apt-get install libatlas-base-dev gfortran
-sudo python3 -m pip install scipy
-sudo python3 -m pip install pyzmq
-sudo python3 -m pip install scikit-rf
+python3 -m pip --user install scipy
+python3 -m pip --user install pyzmq
+python3 -m pip --user install scikit-rf
 # For testing
-sudo python3 -m pip install plotly
+python3 -m pip --user install plotly
 
 
 sudo apt install libzmq3-dev -y
