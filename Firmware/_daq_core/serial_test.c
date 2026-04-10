@@ -41,7 +41,7 @@ int main( int argc, char** argv )
 
     rtlsdr_close(dev);
     log_info("All the resources are free now");
-    
-    return 0;
+
+    _exit(0);
 }
 

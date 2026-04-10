@@ -37,6 +37,8 @@
 #include <math.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
+#include <sys/mman.h>
 #include "rtl_daq.h"
 #include "log.h"
 #include "ini.h"
@@ -45,6 +47,19 @@
 
 #define INI_FNAME "daq_chain_config.ini"
 #define FATAL_ERR(l) log_fatal(l); return -1;
+
+/* Global pointer set before the main loop so the signal handler can clean up */
+static struct shmem_transfer_struct* g_output_sm_buff = NULL;
+
+static void shutdown_handler(int sig)
+{
+    (void)sig;
+    if (g_output_sm_buff != NULL) {
+        shm_unlink(g_output_sm_buff->shared_memory_names[0]);
+        shm_unlink(g_output_sm_buff->shared_memory_names[1]);
+    }
+    _exit(0);
+}
 /*
  * This structure stores the configuration parameters, 
  * that are loaded from the ini file
@@ -171,7 +186,16 @@ int main(int argc, char* argv[])
 
     succ = init_out_sm_buffer(output_sm_buff);
     if(succ !=0){FATAL_ERR("Shared memory initialization failed")}
-	
+
+    /* Register signal handler so SIGTERM/SIGRTMIN unlink the shm objects before exit */
+    g_output_sm_buff = output_sm_buff;
+    struct sigaction sa;
+    sa.sa_handler = shutdown_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGRTMAX, &sa, NULL);
+
     /*
      *
      * ---> Main Processing Loop <---

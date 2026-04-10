@@ -816,7 +816,8 @@ def copy_iq(iq_samples_in, iq_samples_out, M):
 
 if __name__ == '__main__':
     delay_synchronizer_inst0 = delaySynchronizer()
-    if delay_synchronizer_inst0.open_interfaces() == 0:
-        delay_synchronizer_inst0.start()
-    
-    delay_synchronizer_inst0.close_interfaces()
+    try:
+        if delay_synchronizer_inst0.open_interfaces() == 0:
+            delay_synchronizer_inst0.start()
+    finally:
+        delay_synchronizer_inst0.close_interfaces()

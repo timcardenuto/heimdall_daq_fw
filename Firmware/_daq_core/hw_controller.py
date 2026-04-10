@@ -698,7 +698,8 @@ class CtrIfaceServer(threading.Thread):
 
 if __name__ == "__main__":
     HWC_inst0 = HWC()
-    if HWC_inst0.init() == 0:
-        HWC_inst0.start()
-
-HWC_inst0.close()
+    try:
+        if HWC_inst0.init() == 0:
+            HWC_inst0.start()
+    finally:
+        HWC_inst0.close()

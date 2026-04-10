@@ -14,7 +14,7 @@ RM= rm -f
 
 HOST_ARCH := $(shell uname -m)
 
-all:  daq_util rtl_daq rebuffer iq_server decimator
+all:  daq_util rtl_daq rebuffer iq_server decimator serial_test
 ifeq ($(HOST_ARCH), x86_64)
 decimator: decimate_x86
 else
@@ -44,6 +44,9 @@ decimate_arm_neon: sh_mem_util.c iq_header.c log.c ini.c fir_decimate.c
 iq_server: sh_mem_util.c iq_header.c log.c ini.c iq_server.c
 	$(CC) $(CFLAGS) sh_mem_util.o log.o ini.o iq_header.o -o iq_server.out iq_server.c -lrt
 
+serial_test: log.c serial_test.c rtl_daq.h
+	$(CC) $(CFLAGS) log.o -o serial_test serial_test.c -L. -lrtlsdr -lusb-1.0
+
 clean:
-	$(RM) ini.o log.o iq_header.o sh_mem_util.o fir_decimate.o decimate.o rtl_daq.out rebuffer.out decimate.out iq_server.out 	
+	$(RM) ini.o log.o iq_header.o sh_mem_util.o fir_decimate.o decimate.o rtl_daq.out rebuffer.out decimate.out iq_server.out serial_test
 

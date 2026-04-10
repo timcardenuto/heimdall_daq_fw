@@ -14,6 +14,12 @@ Should also be compatible with other systems including x86, but a system with at
     # TODO should it really be **zero** or is there a sane limit?
     sh -c "echo 0 > /sys/module/usbcore/parameters/usbfs_memory_mb"
 
+    # TODO is this necessary / does this mess things up when I'm using this project on a normal OS?
+    sysctl -w kernel.sched_rt_runtime_us=-1
+
+    # TODO what does this do?
+    echo '3' | tee /proc/sys/vm/drop_caches > /dev/null
+
 * Also changing install instructions, don't want to use `sudo` with pip, should do it as normal user.
 
 * TODO: Should clean up the start/stop so that we're not using regex to kill processes... seems like a poor way to handle that, should capture process ID or leave process in foreground to use Ctrl-C or make it a systemd service or something

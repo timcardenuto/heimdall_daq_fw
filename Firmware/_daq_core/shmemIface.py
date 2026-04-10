@@ -49,15 +49,15 @@ class outShmemIface():
         try:
             shmem_A = shared_memory.SharedMemory(name=shmem_name+'_A',create=False, size=shmem_size)
             shmem_A.close()
-            #shmem_A.unlink()
-        except FileNotFoundError as err:
-            self.logger.warning("Shared memory not exist")
+            shmem_A.unlink()
+        except FileNotFoundError:
+            pass
         try:
             shmem_B = shared_memory.SharedMemory(name=shmem_name+'_B',create=False, size=shmem_size)
             shmem_B.close()
-            #shmem_B.unlink()
-        except FileNotFoundError as err:
-            self.logger.warning("Shared memory not exist")
+            shmem_B.unlink()
+        except FileNotFoundError:
+            pass
         
         # Create the shared memories
         self.memories.append(shared_memory.SharedMemory(name=shmem_name+'_A',create=True, size=shmem_size))
@@ -101,14 +101,14 @@ class outShmemIface():
     def destory_sm_buffer(self):
         for memory in self.memories:
             memory.close()
-            #memory.unlink()
-        
-        if self.fw_ctr_fifo is not None:            
+            memory.unlink()
+
+        if self.fw_ctr_fifo is not None:
             os.close(self.fw_ctr_fifo)
 
-        if self.bw_ctr_fifo is not None:            
-            os.close(self.bw_ctr_fifo)          
-        
+        if self.bw_ctr_fifo is not None:
+            os.close(self.bw_ctr_fifo)
+
     def wait_buff_free(self):
         if self.buffer_free[0]:
             return 0

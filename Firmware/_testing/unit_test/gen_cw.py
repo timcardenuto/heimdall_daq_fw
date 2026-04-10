@@ -77,16 +77,16 @@ sig_freq_sweep_step  =  fs/N_daq*2**10
 # Parse command line arguments
 opts, args = getopt.getopt(sys.argv[1:],"b:n:r:s:m:")
 for opt, arg in opts:
-	if opt == '-b':
-		blocks = int(arg)
-	elif opt == '-n':
-		N_daq = int(arg)
-	elif opt == '-r':
-		R = int(arg)
-	elif opt == '-s':
- 		sig_type= arg
-	elif opt == '-m':
-		shmem_name = arg
+    if opt == '-b':
+        blocks = int(arg)
+    elif opt == '-n':
+        N_daq = int(arg)
+    elif opt == '-r':
+        R = int(arg)
+    elif opt == '-s':
+        sig_type= arg
+    elif opt == '-m':
+        shmem_name = arg
 
 
 N_daq *= R
@@ -183,9 +183,9 @@ try:
         
         multi_frame_cntr +=1
         if multi_frame_cntr == multi_frames:
-        	sig_freq += sig_freq_sweep_step
-        	multi_frame_cntr = 0
-        	packet_start_time = 0
+            sig_freq += sig_freq_sweep_step
+            multi_frame_cntr = 0
+            packet_start_time = 0
 
         #######################################
         #           SEND DATA FRAME
