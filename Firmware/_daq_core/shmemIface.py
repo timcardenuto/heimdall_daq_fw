@@ -98,16 +98,23 @@ class outShmemIface():
         os.write(self.fw_ctr_fifo, pack('B',TERMINATE))
         self.logger.info("Terminate signal sent")
         
-    def destory_sm_buffer(self):
+    def destroy_sm_buffer(self):
         for memory in self.memories:
             memory.close()
-            memory.unlink()
+            try:
+                memory.unlink()
+            except FileNotFoundError:
+                pass  # Already unlinked
 
         if self.fw_ctr_fifo is not None:
             os.close(self.fw_ctr_fifo)
 
         if self.bw_ctr_fifo is not None:
             os.close(self.bw_ctr_fifo)
+
+    # Keep old name for backwards compatibility
+    def destory_sm_buffer(self):
+        self.destroy_sm_buffer()
 
     def wait_buff_free(self):
         if self.buffer_free[0]:
@@ -174,21 +181,26 @@ class inShmemIface():
         elif active_buffer_index == 1:            
             os.write(self.bw_ctr_fifo, pack('B',B_BUFF_READY))
                 
-    def destory_sm_buffer(self):
+    def destroy_sm_buffer(self):
         for memory in self.memories:
             memory.close()
-        
-        if self.fw_ctr_fifo is not None:            
+            # Note: inShmemIface should not unlink - that's the responsibility of outShmemIface
+
+        if self.fw_ctr_fifo is not None:
             os.close(self.fw_ctr_fifo)
 
-        if self.bw_ctr_fifo is not None:            
-            os.close(self.bw_ctr_fifo)         
-        
+        if self.bw_ctr_fifo is not None:
+            os.close(self.bw_ctr_fifo)
+
+    # Keep old name for backwards compatibility
+    def destory_sm_buffer(self):
+        self.destroy_sm_buffer()
+
     def wait_buff_free(self):
         signal = unpack('B', os.read(self.fw_ctr_fifo, 1))[0]
-        if signal == A_BUFF_READY:                    
+        if signal == A_BUFF_READY:
             return 0
-        elif signal == B_BUFF_READY:                                 
+        elif signal == B_BUFF_READY:
             return 1
         elif signal == TERMINATE:
             return TERMINATE

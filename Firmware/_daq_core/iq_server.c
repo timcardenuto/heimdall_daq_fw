@@ -127,14 +127,24 @@ int main(int argc, char* argv[])
 	int run_server=1;
     while(run_server)
     {
-		
+
 		/* This function blocks until a client connects to the server */
-		int * sockets = malloc(2*sizeof(int)); //[server, client] 
-        iq_stream_con(sockets);        
-        // TODO: Check and handle success
-        
+		int * sockets = malloc(2*sizeof(int)); //[server, client]
+        if(sockets == NULL)
+        {
+            log_fatal("Failed to allocate memory for sockets");
+            break;
+        }
+
+        if(iq_stream_con(sockets) != 0)
+        {
+            log_error("Failed to establish streaming connection");
+            free(sockets);
+            continue;  // Try again with a new connection
+        }
+
         int exit_flag =0;
-        while(!exit_flag) 
+        while(!exit_flag)
         {
         	// Acquire data buffer on the shared memory interface
         	active_buff_ind = wait_buff_ready(input_sm_buff);
@@ -144,17 +154,18 @@ int main(int argc, char* argv[])
 			CHK_SYNC_WORD(check_sync_word(iq_frame->header));
 			iq_frame->payload_size=iq_frame->header->cpi_length * iq_frame->header->active_ant_chs;
 			//dump_iq_header(iq_frame->header);
-			
+
 			ret=send_iq_frame(iq_frame, sockets[1]);
 			send_ctr_buff_free(input_sm_buff, active_buff_ind);
 			if(ret !=0){log_error("Closing connection"); break;}
-			
+
 			/* Waiting for further download commands on the Ethernet link*/
 			int bytes_recieved = recv(sockets[1],eth_cmd,1024,0);
 			eth_cmd[bytes_recieved] = '\0';
-			if (strcmp(eth_cmd, "IQDownload") !=0){exit_flag=1;}       
+			if (strcmp(eth_cmd, "IQDownload") !=0){exit_flag=1;}
        }
         iq_stream_close(sockets);
+        free(sockets);
     }
 	destory_sm_buffer(input_sm_buff);
 	log_info("DAQ chain IQ server has exited.");

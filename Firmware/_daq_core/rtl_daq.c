@@ -153,75 +153,91 @@ static int handler(void* conf_struct, const char* section, const char* name,
 }
 
 void * fifo_read_tf(void* arg)
-/*   
+/*
  *  Control FIFO read thread function
  *
  *  This thread function handles the external requests using a ZMQ socket.
  *  Upon receipt of a command, this thread infroms the main thread on the requested operation.
- *  
+ *
  *  Return values:
  *  --------------
  *       NULL
- */    
+ */
 {
-    (void)arg; 
+    (void)arg;
 
     // Initialize ZMQ Socket
     void *context   = zmq_ctx_new ();
     void *responder = zmq_socket (context, ZMQ_REP);
     int rc          = zmq_bind (responder, "tcp://*:1130");
-    assert (rc == 0);
-    if(rc!=0)
-    {        
-        log_fatal("Failed to open ZMQ socket"); 
+    if(rc != 0)
+    {
+        log_fatal("Failed to open ZMQ socket");
+        zmq_close(responder);
+        zmq_ctx_destroy(context);
         pthread_mutex_lock(&buff_ind_mutex);
         exit_flag = 1;
         pthread_cond_signal(&buff_ind_cond);
-        pthread_mutex_unlock(&buff_ind_mutex); 
+        pthread_mutex_unlock(&buff_ind_mutex);
         return NULL;
     }
     int zmq_socket_flags = 0;//|ZMQ_NOBLOCK;
 
     // Initialize message structure
-    struct hdaq_im_msg_struct* msg;    
+    struct hdaq_im_msg_struct* msg;
     msg = (struct hdaq_im_msg_struct*) malloc(sizeof(struct hdaq_im_msg_struct));
-    
+    if(msg == NULL)
+    {
+        log_fatal("Failed to allocate message structure");
+        zmq_close(responder);
+        zmq_ctx_destroy(context);
+        pthread_mutex_lock(&buff_ind_mutex);
+        exit_flag = 1;
+        pthread_cond_signal(&buff_ind_cond);
+        pthread_mutex_unlock(&buff_ind_mutex);
+        return NULL;
+    }
+
     /* Main thread loop*/
     while(!exit_flag){
-        
+
         // Blocks until command is received
-        zmq_recv (responder, msg, 128, zmq_socket_flags);        
+        zmq_recv (responder, msg, 128, zmq_socket_flags);
         log_info("IM Request from: %d",msg->source_module_identifier);
         log_info("Command id: %c",msg->command_identifier);
-        
-        pthread_mutex_lock(&buff_ind_mutex);   // New command is received, acquiring the mutex 
-        
+
+        pthread_mutex_lock(&buff_ind_mutex);   // New command is received, acquiring the mutex
+
         /* Tuner reconfiguration request */
         if( msg->command_identifier == 'r')
         {
-            log_info("Signal 'r': Reconfiguring the tuner");            
+            log_info("Signal 'r': Reconfiguring the tuner");
             uint32_t * parameters = (uint32_t * ) msg->parameters;
-            
+
             log_info("Center freq: %u MHz", ((unsigned int) parameters[0]/1000000));
             log_info("Sample rate: %u MSps", ((unsigned int) parameters[1]/1000000));
             log_info("Gain: %d dB",(parameters[2]/10));
-            
+
             for(int i=0; i<ch_no; i++)
-            {              
+            {
               rtl_receivers[i].gain = (int) parameters[2];
               rtl_receivers[i].center_freq = parameters[0];
               rtl_receivers[i].sample_rate = parameters[1];
             }
             reconfig_trigger=1;
+            en_dummy_frame = 1;
+            dummy_frame_cntr = 0;
         }
         /* Center Frequency Tuning */
         else if (msg->command_identifier == 'c')
         {
-            log_info("Signal 'c': Center frequency tuning request");            
-            uint32_t * parameters = (uint32_t * ) msg->parameters;            
+            log_info("Signal 'c': Center frequency tuning request");
+            uint32_t * parameters = (uint32_t * ) msg->parameters;
             new_center_freq = parameters[0];
             center_freq_change_flag = 1;
             log_info("New center frequency: %u MHz", ((unsigned int) parameters[0]/1000000));
+            en_dummy_frame = 1;
+            dummy_frame_cntr = 0;
         }
         /* Gain tuning*/
         else if( msg->command_identifier == 'g')
@@ -233,12 +249,16 @@ void * fifo_read_tf(void* arg)
                 log_info("Channel: %d, Gain: %f dB",i, (float) parameters[i]/10);
             }
             gain_change_flag=1;
+            en_dummy_frame = 1;
+            dummy_frame_cntr = 0;
         }
         /* Enable AGC */
         else if( msg->command_identifier == 'a')
         {
             log_info("Signal 'a': enable AGC request");
             agc_change_flag = 1;
+            en_dummy_frame = 1;
+            dummy_frame_cntr = 0;
         }
         /* Sampling Freq Correction - Used for sampling clock delay tuning*/
         else if( msg->command_identifier == 's')
@@ -251,6 +271,8 @@ void * fifo_read_tf(void* arg)
             }
             fs_reset_cntr = 0;
             fs_correction_flag=1;
+            en_dummy_frame = 1;
+            dummy_frame_cntr = 0;
         }
         /* Noise source switch requests */
         else if (msg->command_identifier == 'n')
@@ -259,27 +281,34 @@ void * fifo_read_tf(void* arg)
             if(msg->parameters[0] == 0)
             {
                 log_info("Turn off noise source");
-                noise_source_state = 0;          
+                noise_source_state = 0;
             }
             else{
                 log_info("Turn on noise source");
                 noise_source_state = 1;
-            }            
+            }
+            en_dummy_frame = 1;
+            dummy_frame_cntr = 0;
         }
         /* System halt request */
         else if(msg->command_identifier == 'h')
         {
-            log_info("Signal 2: FIFO read thread exiting \n");
-            exit_flag = 1;           
+            log_info("Signal 'h': System halt requested, FIFO read thread exiting");
+            exit_flag = 1;
+            // Don't set dummy frame for halt - we're shutting down
         }
-        /* Send out dummy frames while the changes takes effect*/
-        en_dummy_frame = 1; 
-        dummy_frame_cntr = 0;
-        zmq_send (responder, "ok", 2, 0);
 
+        zmq_send (responder, "ok", 2, 0);
         pthread_cond_signal(&buff_ind_cond);
-        pthread_mutex_unlock(&buff_ind_mutex); 
+        pthread_mutex_unlock(&buff_ind_mutex);
     }
+
+    // Cleanup resources before exiting
+    free(msg);
+    zmq_close(responder);
+    zmq_ctx_destroy(context);
+    log_info("FIFO read thread resources cleaned up");
+
     return NULL;
 }
 
@@ -598,13 +627,14 @@ int main( int argc, char** argv )
      * ---> Main data acquistion loop <---
      *
      */
+    pthread_mutex_lock(&buff_ind_mutex);  // Acquire mutex before entering the loop
     while( !exit_flag )
-    {   
+    {
         /* We are checking here the current buffer indexes of the reader threads.
          * All the reader threads should reach the same index before we could send out the data,
          * and we could coninue the acquisition.
-        */        
-        pthread_cond_wait(&buff_ind_cond, &buff_ind_mutex); // TODO: Check- should we acquire mutex first?
+        */
+        pthread_cond_wait(&buff_ind_cond, &buff_ind_mutex);
         data_ready = 1;
         for(int i=0; i<ch_no; i++)
         {
@@ -875,14 +905,14 @@ int main( int argc, char** argv )
         pthread_join(rtl_rec->async_read_thread, NULL);
         free(rtl_rec->buffer);
 
-        /* This does not work currently, TODO: Close the devices properly
         if(rtlsdr_close(rtl_rec->dev) != 0)
         {
-            fprintf(stderr, "[ ERROR ]  Device close failed: %s\n", strerror(errno));
-            exit(1);
+            log_error("Device close failed for id:%d: %s", i, strerror(errno));
         }
-        fprintf(stderr, "[ INFO ] Device closed with id:%d\n",i);
-        */
+        else
+        {
+            log_info("Device closed with id:%d", i);
+        }
     }
     pthread_mutex_unlock(&buff_ind_mutex);
     pthread_join(fifo_read_thread, NULL);
